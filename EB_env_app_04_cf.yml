@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Elasticbeanstalk test template
+Parameters:
+  BeanstalkService:
+  #elasticbeanstalk.amazonaws.com
+    Type: String
+  Ec2Service:
+  #ec2.amazonaws.com
+    Type: String
+  Partition:
+  #aws / aws-cn / aws-us-gov
+    Type: String
+  SolutionStackName:
+  #64bit Amazon Linux 2018.03 v4.14.1 running Node.js
+  #64bit Amazon Linux 2018.03 v2.9.7 running Python
+    Type: String
+  PlatformArn:
+    Type: String
+  NotificationEmail:
+    Type: String
+  EC2KeyName:
+    Type: String
+Resources:
+  Application:
+    Properties:
+      ApplicationVersions:
+        - Description: Version 1.0
+          SourceBundle:
+            S3Bucket: !Join
+              - '-'
+              - - codebuild
+                - !Ref 'AWS::Region'
+                - !Ref 'AWS::AccountId'
+            S3Key: app04/BuildArtif/UQXgdHS
+          VersionLabel: Initial Version
+      Description: app04 by CF
+    Type: AWS::ElasticBeanstalk::Application
+  Environment:
+    Properties:
+      ApplicationName: !Ref Application
+      Description: AWS Elastic Beanstalk Environment running Python Sample Application
+      PlatformArn: !Ref PlatformArn
+      SolutionStackName: !Ref SolutionStackName
+      VersionLabel: Initial Version
+      OptionSettings:
+        - Namespace: aws:elasticbeanstalk:command
+          OptionName: BatchSize
+          Value: '1'
+        - Namespace: aws:elasticbeanstalk:command
+          OptionName: BatchSizeType
+          Value: Fixed
+        - Namespace: aws:elasticbeanstalk:command
+          OptionName: DeploymentPolicy
+          Value: AllAtOnce
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: AWS_REGION
+          Value: us-east-1
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: DYNAMODB_TABLENAME
+          Value: !Ref CommentsTable
+        - Namespace: aws:autoscaling:trigger
+          OptionName: BreachDuration
+          Value: '2'
+        - Namespace: aws:autoscaling:trigger
+          OptionName: LowerThreshold
+          Value: '1'
+        - Namespace: aws:autoscaling:trigger
+          OptionName: MeasureName
+          Value: TargetResponseTime
+        - Namespace: aws:autoscaling:trigger
+          OptionName: Period
+          Value: '2'
+        - Namespace: aws:autoscaling:trigger
+          OptionName: Unit
+          Value: Seconds
+        - Namespace: aws:elasticbeanstalk:environment:process:default
+          OptionName: Port
+          Value: '8080'
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: EC2KeyName
+          Value: !Ref EC2KeyName
+        - Namespace: aws:autoscaling:trigger
+          OptionName: UpperThreshold
+          Value: '2'
+        - Namespace: aws:elasticbeanstalk:sns:topics
+          OptionName: Notification Endpoint
+          Value: !Ref NotificationEmail
+        - Namespace: aws:autoscaling:asg
+          OptionName: MaxSize
+          Value: '2'
+        - Namespace: aws:elbv2:loadbalancer
+          OptionName: AccessLogsS3Enabled
+          Value: true
+        - Namespace: aws:elbv2:loadbalancer
+          OptionName: AccessLogsS3Prefix
+          Value: ELB
+        - Namespace: aws:elbv2:loadbalancer
+          OptionName: AccessLogsS3Bucket
+          Value: elasticbeanstalk-us-east-1-261458910922-logs
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs
+          OptionName: StreamLogs
+          Value: true
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: ServiceRole
+          Value: arn:aws:iam::261458910922:role/aws-elasticbeanstalk-service-role
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: LoadBalancerType
+          Value: application
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: IamInstanceProfile
+          Value: aws-elasticbeanstalk-ec2-role
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs:health
+          OptionName: HealthStreamingEnabled
+          Value: true
+        - Namespace: aws:elasticbeanstalk:healthreporting:system
+          OptionName: SystemType
+          Value: enhanced
+    Type: AWS::ElasticBeanstalk::Environment
+  CommentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        HashKeyElement: {AttributeName: Subject, AttributeType: S}
+        RangeKeyElement: {AttributeName: User, AttributeType: S}
+      ProvisionedThroughput: {ReadCapacityUnits: 1, WriteCapacityUnits: 1}
